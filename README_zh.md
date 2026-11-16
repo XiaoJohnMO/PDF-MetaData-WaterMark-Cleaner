@@ -1,41 +1,146 @@
 | 📖 [English](README.md) | 📖 **简体中文** |
 | ---- | ---- |
 
-name: pdf-metadata-cleaner
-description: 清除 PDF 文件中的隐私元数据（EXIF/XMP/DocInfo/作者/设备标识/扫描软件信息），并移除页面水印文字。当用户要求"清理""去EXIF""去水印""清除元数据""去掉扫描信息"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、WPS、iText 水印、Adobe InDesign 等常见来源。
+---
+name: pdf-metadata-cleaner（PDF元数据清理助手）
+description: 清除 PDF 的隐私元数据（EXIF/XMP/DocInfo/作者/设备指纹/扫描软件信息）和页面水印、扫描 App 角标。优先用"提取底图重建新 PDF"的方式去水印，而不是涂白遮挡。当用户要求"清理""去EXIF""去水印""去掉扫描信息""去设备指纹"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、夸克扫描、格式工厂、WPS、iText 水印等来源。
 ---
 
 # PDF 元数据与水印清理
 
-## 标准流程
+## 铁律
 
-1. **检查**：用 exiftool 查看外壳元数据和 XMP，用 PyMuPDF 检查页数、水印文本。
-2. **清理元数据**：`exiftool -all= -o <output> <input>` 清除所有外壳和 XMP。
-3. **重构**：PyMuPDF `set_metadata({})` + `garbage=4, deflate=True` 另存。
-4. **水印处理**（如有）：PyMuPDF `search_for` + `add_redact_annot` + `apply_redactions`。
-5. **验证**：exiftool 复查无残留，渲染首尾页确认非白。
+1. **先侦察形态，再选路线**，不要拿到文件就直接动手。
+2. **不要用 redact 涂白去水印**。水印网格永远压着正文，涂白会连字一起削掉，留下无法修复的白洞。
+3. **输出沿用原文件名**，或用户指定名；不要自行添加任何后缀。
+4. **交付前必须跑差异核查并亲自看渲染图**，脚本报"成功"不等于没坏。
 
-## 工具依赖
+## 依赖
 
-- **exiftool**：需自行安装并加入 PATH，下载地址 [exiftool.org](https://exiftool.org/)。
-- **PyMuPDF**：`pip install pymupdf`
-- **清理脚本**：`scripts/clean_pdf.py <input> [output]`
+硬依赖只有两样：Python 3 与 PyMuPDF（`pip install pymupdf`）。exiftool 是**可选项**，
+不是必须装的东西——脚本按「本机已装路径 → PATH → PyMuPDF 内置清法」自动选择：
 
-## 关键禁忌（已验证的教训）
+| 情况 | 脚本行为 |
+|---|---|
+| 本机配好了 exiftool（`clean_pdf.py` 顶部常量） | 用它清理并复查 |
+| PATH 里有 exiftool | 用它清理并复查 |
+| 两者都不可用 | 退回 PyMuPDF 清 Info + 删 XMP，结果等价（已用外部 exiftool 交叉验证，隐私标签全空） |
 
-- **不要**用 Pillow 重编码 PDF 内嵌 JPEG 后通过 PyMuPDF `update_stream` 替换流——会导致对象字典不匹配，页面白屏黑条。
-- **不要**仅用 PyMuPDF `set_metadata({})`——它只清 Info 字典，不清 XMP 流。必须先用 exiftool `-all=`，再 `garbage=4` 重构。
-- 内嵌图片流**原封不动**，不重编码。
+**为什么不随包携带 exiftool**：exiftool 不是通用预装件。macOS 自带 perl 但没有exiftool，Windows 两者都没有，随包塞一份 19 MB 的 Perl 工具反而让多数人跑不起来。既然 PyMuPDF 内建清法结果等价，就不该为它付出体积和平台兼容成本。
 
-## 常见水印模式
+> 分享给他人时，`clean_pdf.py` 顶部的 `LOCAL_EXIFTOOL` 常量应清空（打包脚本会自动置为
+> `None`），包内不留任何绝对路径。
 
-| 来源 | 水印特征 | 处理方式 |
+## 第 0 步：侦察形态
+
+```bash
+python scripts/rebuild_from_images.py --inspect <input.pdf>
+```
+
+逐页输出形态，只会是两种之一：
+
+| 形态 | 判定 | 含义 |
 |---|---|---|
-| CamScanner/扫描全能王 | "扫描全能王 创建"（每页底部） | `search_for("扫描全能王")` 后 redact |
-| iText 账号水印 | 重复网格的"部门:用户名"，含截断变体 | 搜索短而稳定的子串（如拼音/用户名片段）匹配所有变体 |
-| 柯尼卡美能达复合机 | JPEG Comment 字段含 `KM_<型号>` | `exiftool -Comment=` 无损移除（为空则跳过） |
-| WPS 文字 | Author 字段含真实姓名 | exiftool `-all=` 自动清除 |
+| `single` | ① 主图覆盖率 ≥ 90%；**或** ② 主图 ≥ 50% 且同时满足：其余图要么 < 5% 的微小叠加、要么平均不透明度 ≤ 30% 的淡叠加（平台水印）、图片对象 ≤ 8 个、无 1-bit 伴生蒙版、文字层只是水印戳（总字数 ≤ 200 且不重复行 ≤ 3） | 一页一张底图，水印/角标是额外叠加对象 |
+| `complex` | 其余情况 | 多图拼贴，或 MRC 混合栅格（彩色 JPEG 底图 + 1-bit 文字蒙版 + 大量碎块） |
 
-## 输出命名
+判定不能只看 90% 一个阈值。② 这一档专门兜两类容易漏掉的正常件：扫描 App 出图留白边（正文只占 77%–88%）、平台上盖一层大半页但几乎透明的 PNG 水印。它同时要求"没有 1-bit 蒙版、文字层只是水印戳"，因此不会放过 MRC，也不会误删正文。
 
-- 默认使用原文件名输出；用户指定名称时按用户要求。
+**淡叠加的判据**：叠加图带 smask 且平均不透明度 ≤ 30%（实测企业标准信息公共服务平台的斜向水印只有 2%）。真正的插图是不透明或明显半透明的。
+
+柯尼卡美能达 bizhub 系列（KM_3xx / C3xx）多数输出 **complex**；
+扫描全能王、夸克扫描王、格式工厂转出的 PDF 通常是 **single**。
+
+## 两种「转图片」不能混用
+
+同一个说法对应两件不同的事，做错会得到完全不一样的结果。二者的定位也不同：
+
+| 操作 | 命令 | 产物 | 定位与用途 |
+|---|---|---|---|
+| **提取内嵌图** | `pdf_to_images.py <in> <dir> --mode extract` | PDF 里真实嵌着的图片对象，**没有矢量水印和文字层**，但会混进 logo、二维码、文字蒙版碎片 | **去水印流程的一环**（路线 A 取的就是它）。用于确认哪张是正文底图、哪些是叠加污染物 |
+| **整页渲染** | `pdf_to_images.py <in> <dir> --mode render` | 每页一张 PNG/JPG，**水印、页眉、logo、二维码都在画面里** | **清理工具的附加便利功能**：把整份 PDF 正常转成图片，供审阅、对比、送 OCR、发预览图 |
+
+判断"这张到底是不是底图"只看覆盖率：同一页里覆盖率最高的那张通常是正文底图，其余低覆盖率小图多为叠加角标或文字蒙版碎块。`--inspect` 给出的就是这个判断。
+
+`rebuild_from_images.py` 走的是**提取内嵌图**这条逻辑（不做渲染），因为它要的是原始 JPEG 字节，重编码会掉画质。
+
+## 路线 A：图像重建（`single` 首选）
+
+```bash
+python scripts/rebuild_from_images.py <input.pdf> <output.pdf>
+```
+
+做法：把每页那张底图的原始字节取出来 → 剥掉图片级元数据 → 按原位置放进一个全新的 PDF。**一个像素都不改，也不重新编码。**
+
+一次解决四件事：
+
+- 水印文字、iText 账号水印（`部门:用户名` 这类重复网格）、页码水印 —— 都是画在文字层里的矢量对象，新 PDF 里没有文字层，自然不存在；
+- 扫描 App 的 logo + 二维码角标 —— 是额外的小图，重建时整体丢弃；
+- OCR 文字层（低质错误识别文本）—— 一并消失；
+- 外壳 Info/XMP、DocumentID、Creator/Producer 设备指纹 —— 新文件从零生成，天然干净。
+
+代价：丢掉文字层，扫描件不可全文搜索（扫描件本来也搜不准）。若确需可搜索，另行 OCR。不过达到了清理目的，最大程度去掉机器创建的可识读元数据隐私信息。
+
+脚本自带差异核查：把原文件与结果同分辨率渲染逐页比对，某页差异 > 25% 会告警，意味着底图判定错了、正文被丢，必须回退重做。
+
+## 路线 B：元数据清理（`complex`，或只需去元数据）
+
+```bash
+python scripts/clean_pdf.py <input.pdf> <output.pdf>
+```
+
+原文不再用 `exiftool -all= -o` 硬清（会连结构项一起动），改为：
+exiftool（若本机可用）→ PyMuPDF `set_metadata({})` → `garbage=4, deflate=True`，图片流原封不动。
+
+`complex` 页面无法安全拆解（每块碎图都可能是一段正文的蒙版），**保持原样、只清外壳元数据**。此时若页面上确实还有水印，走路线 C 且必须人工核对。
+
+## 路线 C：redact 涂白（最后手段，有损）
+
+仅当同时满足才可用：水印是独立矢量文字、且 `search_for` 的命中框与正文文本框没有重叠。
+
+先做重叠检查再决定：
+
+```python
+for r in page.search_for("<水印关键词>"):
+    hits = [b for b in page.get_text("blocks") if pymupdf.Rect(b[:4]).intersects(r)]
+```
+
+一有重叠就**放弃涂白**，改用路线 A 重建，或告知该水印无法无损去除。反面教材：曾有带iText账号水印的PDF被用涂白去重复网格水印，结果把水印下的正文字形一起削掉，扫描底图上留下永久白洞，原件缺失无法修复。
+
+## 关键禁忌（都已踩过）
+
+- **APP14（Adobe 色彩变换标记）和 APP2（ICC）绝对不能剥**。只剥 APP1/APP13/COM；
+  剥掉 APP14 会让 CMYK JPEG 整页反色成黑底白字。
+- **不要**用 `update_stream` 改写 `[/FlateDecode /DCTDecode]` 组合滤镜的流——写回后渲染会反色损坏。
+- **不要**用 Pillow 重编码内嵌 JPEG 再塞回 PDF。
+- **不要**单独用 `set_metadata({})`——它只清 Info 字典，不清 XMP 流。
+- **不要**硬拼 `complex` 页面，宁可原样保留并告警。
+
+## 交付前自检
+
+1. `rebuild_from_images.py` 的差异核查无告警；
+2. 隐私标签复查为空（Title/Author/Creator/Producer/Subject/Keywords/Description/Comment/各 Date/XMP）；
+3. 渲染首页 + 末页 + 中间随机一页，确认白底黑字、内容完整、无缺字白洞；
+4. 页数与原文件一致；
+5. 逐页统计墨迹占比（如 40dpi 灰度下 < 200 的像素比例），疑似空白页必须回原件对照——有的页原件本来就是空白页、只有水印，去掉水印后变白是正确结果，不是丢内容。
+
+## 常见来源对照
+
+| 来源 | 形态 | 首要处理 |
+|---|---|---|
+| 柯尼卡美能达 bizhub（KM_3xx / C3xx） | 多为 complex | 路线 B；JPEG COM 段含 `KM_<型号>` 时只剥 COM |
+| 扫描全能王（CamScanner） | single，正文图多为 77%–88%（带白边），右下角另有 logo 小图约 0.4% | 路线 A，靠"主图 ≥50% + 其余微小叠加"这档判定进入重建 |
+| 夸克扫描王（Quark） | single，正文图 82%–93%，页脚有 logo **+ 二维码** PNG 约 1.5% | 路线 A，logo 与二维码一起丢弃 |
+| 脚本植入的文字水印（如 `Scan By @xxx`） | 正文图通常铺满，水印是 8pt 灰色矢量文字 | 路线 A；重建即丢弃文字层，无需 redact |
+| 企业标准信息公共服务平台 | 正文图 85%–87%，**斜向半透明 PNG 水印**覆盖 30%–40%（压着表头）、左上角平台二维码、右下角"扫描全能王 创建"、文字层日期戳 | 路线 A；淡叠加按不透明度判定后整层丢弃，正文不受影响 |
+| 格式工厂转图 | single | 路线 A |
+| iText 账号水印（`部门:用户名` 网格） | 看外层 | 路线 A；禁止涂白 |
+| WPS 文字导出 | 通常无实图 | 路线 B，Author 含真实姓名由清理引擎一并清除 |
+
+## 脚本一览
+
+| 脚本 | 职责 |
+|---|---|
+| `rebuild_from_images.py` | 侦察形态（`--inspect`）、提取底图重建（路线 A）、差异核查 |
+| `clean_pdf.py` | 清外壳元数据（路线 B），三级引擎自动选择 |
+| `pdf_to_images.py` | 整页渲染 / 提取内嵌图，两种模式显式区分，同时充当内置的PDF转图片快捷小工具 |
