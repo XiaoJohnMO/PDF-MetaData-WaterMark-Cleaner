@@ -7,11 +7,11 @@
 
 Description
 ---
-Removes private metadata from PDFs (EXIF/XMP/DocInfo/author/device fingerprint/scanner-software traces) together with page watermarks and scanning-app corner badges. Watermarks are removed by extracting the base image and rebuilding a clean PDF, not by painting over them. Use when the user asks to "clean", "strip EXIF", "remove watermarks", "remove scanner info" or "remove device fingerprints". Covers Konica Minolta MFPs, CamScanner, Quark Scan, Format Factory, WPS, iText watermarks and similar sources.
+Removes private metadata from PDFs and images inside (EXIF/XMP/DocInfo/author/device fingerprint/scanner-software traces) together with page watermarks and scanning-app corner badges. Watermarks are removed by extracting the base image (learnt from Format Factory) and rebuilding a clean PDF, not by painting over them. Use when the user asks to "clean", "strip EXIF", "remove watermarks", "remove scanner info" or "remove device fingerprints". Covers Konica Minolta MFPs, CamScanner, Quark Scan, WPS, iText watermarks and similar sources.
 
-It can be installed in AI Agents as a skill to use.
+It can be installed for AI Agents as a skill to use.
 
-# PDF Metadata (and some sorts of Watermark) Cleaning
+# PDF Metadata (and basic kinds of Watermark) Cleaning
 
 ## Iron rules
 
@@ -50,10 +50,10 @@ It reports a form for every page, and it is always one of two:
 
 A single 90% threshold is not enough. Tier ② exists to catch two kinds of normal files that are easy to miss: scans from phone apps that leave a white border (body covers only 77%–88% of the page), and platform files with a nearly transparent PNG watermark laid across more than half the page. Tier ② also requires "no 1-bit mask, text layer is only a stamp", so it does not let MRC through and does not delete body text by mistake.
 
-**Criterion for a faint overlay**: the overlay carries a smask and its mean opacity is ≤ 30% (the diagonal watermark on the 企业标准信息公共服务平台 files measures only 2%). Genuine illustrations are opaque or clearly semi-transparent.
+**Criterion for a faint overlay**: the overlay carries a smask and its mean opacity is ≤ 30% (the diagonal watermark on the [企业标准信息公共服务平台 (Enterprise Standards Information Public Service Platform of China)](https://www.qybz.org.cn/) files measures only 2%). Genuine illustrations are opaque or clearly semi-transparent.
 
 Konica Minolta bizhub series (KM_3xx / C3xx) mostly come out **complex**;
-PDFs produced by CamScanner, Quark Scan or Format Factory are usually **single**.
+PDFs produced by CamScanner or Quark Scan are usually **single**.
 
 ## The two kinds of "convert to images" must not be mixed up
 
@@ -136,7 +136,7 @@ The moment there is an overlap, **abandon white-out** — switch to a Route A re
 | CamScanner | single, body image usually 77%–88% (with a white border), plus a separate logo image of about 0.4% at bottom right | Route A — reaches the rebuild through the "dominant image ≥ 50% + tiny companions" tier |
 | Quark Scan | single, body image 82%–93%, footer carries a logo **plus QR code** PNG of about 1.5% | Route A; logo and QR code are dropped together |
 | Script-injected text watermark (e.g. `Scan By @xxx`) | body image usually fills the page; watermark is 8 pt grey vector text | Route A; the rebuild discards the text layer, no redaction needed |
-| 企业标准信息公共服务平台 (Enterprise Standards Information Public Service Platform of China) | body image 85%–87%, **diagonal semi-transparent PNG watermark** covering 30%–40% (lying across the table header), platform QR code top left, "扫描全能王 创建" (created with CamScanner) bottom right, date stamp in the text layer | Route A; the faint overlay is judged by its opacity and dropped as a whole layer, leaving the body unaffected |
+| [企业标准信息公共服务平台 (Enterprise Standards Information Public Service Platform of China)](https://www.qybz.org.cn/) | body image 85%–87%, **diagonal semi-transparent PNG watermark** covering 30%–40% (lying across the table header), platform QR code top left, "扫描全能王 创建" (created with CamScanner) bottom right, date stamp in the text layer | Route A; the faint overlay is judged by its opacity and dropped as a whole layer, leaving the body unaffected |
 | Format Factory conversions | single | Route A |
 | iText account watermark (`department:username` grid) | depends on the envelope | Route A; white-out is forbidden |
 | WPS Writer exports | usually no real image | Route B; an Author containing a real name is removed by the cleaning engine |
