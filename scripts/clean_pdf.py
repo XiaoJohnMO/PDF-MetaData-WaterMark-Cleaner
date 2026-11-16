@@ -4,8 +4,8 @@
 用法:
     python clean_pdf.py <input.pdf> [output.pdf]
 
-- 优先用随包携带的 exiftool（scripts/vendor/exiftool/），找不到时退回 PATH 里的
-  exiftool；两者都没有则用 PyMuPDF 自带能力完成同等清理，不依赖外部工具。
+- 优先用本机已装好的 exiftool（见下方 LOCAL_EXIFTOOL），其次用 PATH 里的 exiftool；
+  两者都没有则用 PyMuPDF 自带能力完成同等清理，不依赖外部工具。
 - 清完用 garbage=4 重构，不重编码内嵌图片（避免渲染损坏）。
 """
 import os
@@ -16,8 +16,9 @@ from pathlib import Path
 
 import pymupdf
 
-SKILL_ROOT = Path(__file__).resolve().parent.parent
-BUNDLED_EXIFTOOL = SKILL_ROOT / "scripts" / "vendor" / "exiftool" / "exiftool"
+# 本机已装好的 exiftool 绝对路径（可选）。打包分享给他人时这一行会被清空，
+# 脚本会自动退回 PATH 里的 exiftool 或 PyMuPDF 内置清法，无需额外安装。
+LOCAL_EXIFTOOL = None
 
 # 只校验隐私相关标签，不关心 PDFVersion/PageCount 这类结构信息
 PRIVACY_TAGS = [
@@ -34,16 +35,24 @@ HARMLESS = {
 
 
 def exiftool_cmd():
-    """按 随包 exiftool → PATH exiftool 的顺序找，全部找不到返回 None。"""
-    if BUNDLED_EXIFTOOL.exists():
-        if shutil.which("perl"):
-            return ["perl", str(BUNDLED_EXIFTOOL)]
-        if os.access(BUNDLED_EXIFTOOL, os.X_OK):
-            return [str(BUNDLED_EXIFTOOL)]
-    found = shutil.which("exiftool")
-    if found:
-        return [found]
-    return None
+    """按 本机绝对路径 → PATH exiftool 的顺序找，全部找不到返回 None。"""
+    for path, label in ((LOCAL_EXIFTOOL, "本机路径"),
+                        (Path(shutil.which("exiftool")) if shutil.which("exiftool") else None, "系统 PATH")):
+        if not path:
+            continue
+        try:
+            if not Path(path).exists():
+                continue
+            if Path(path).suffix == ".exe" or os.access(path, os.X_OK):
+                cmd = [str(path)]
+            elif shutil.which("perl"):
+                cmd = ["perl", str(path)]
+            else:
+                continue
+        except Exception:
+            continue
+        return cmd, label
+    return None, None
 
 
 def clear_with_pymupdf(src: str, dst: str) -> None:
@@ -99,7 +108,7 @@ def verify_with_exiftool(cmd, dst: str) -> bool:
 
 
 def clean_pdf(src: str, dst: str) -> bool:
-    cmd = exiftool_cmd()
+    cmd, label = exiftool_cmd()
     if cmd:
         subprocess.run([*cmd, "-all=", "-o", dst, src],
                        check=True, capture_output=True)
@@ -109,7 +118,7 @@ def clean_pdf(src: str, dst: str) -> bool:
         doc.save(tmp, garbage=4, deflate=True)
         doc.close()
         os.replace(tmp, dst)
-        print(f"清理引擎: exiftool ({'随包携带' if str(BUNDLED_EXIFTOOL) in cmd[-1] else '系统 PATH'})")
+        print(f"清理引擎: exiftool ({label})")
         return verify_with_exiftool(cmd, dst)
 
     clear_with_pymupdf(src, dst)
