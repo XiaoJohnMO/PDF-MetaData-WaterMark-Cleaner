@@ -1,5 +1,5 @@
-**English** | [简体中文](SKILL_CN.md)
----
+| 📖 **English** | 📖 [简体中文](SKILL_CN.md) |
+| ---- | ---- |
 name: pdf-metadata-cleaner
 description: Clean PDF metadata (EXIF/XMP/DocInfo/author/device/scanner info) and remove page watermarks. Use when user asks to "clean", "remove EXIF", "remove watermark", "strip metadata", or "remove scanner info" from a PDF. Supports Konica Minolta copiers, CamScanner, WPS, iText watermarks, Adobe InDesign, and other common sources.
 ---
