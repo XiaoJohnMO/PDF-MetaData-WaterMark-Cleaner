@@ -1,9 +1,11 @@
 | 📖 **English** | 📖 [简体中文](README_zh.md) |
 | ---- | ---- |
 
-Description:
-
+Description
+---
 Removes private metadata from PDFs (EXIF/XMP/DocInfo/author/device fingerprint/scanner-software traces) together with page watermarks and scanning-app corner badges. Watermarks are removed by extracting the base image and rebuilding a clean PDF, not by painting over them. Use when the user asks to "clean", "strip EXIF", "remove watermarks", "remove scanner info" or "remove device fingerprints". Covers Konica Minolta MFPs, CamScanner, Quark Scan, Format Factory, WPS, iText watermarks and similar sources.
+
+It can be installed in AI Agents as a skill to use.
 
 # PDF Metadata (and some sorts of Watermark) Cleaning
 
