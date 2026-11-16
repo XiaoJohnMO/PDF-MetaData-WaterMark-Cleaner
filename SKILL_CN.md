@@ -1,4 +1,6 @@
----
+| 📖 [English](SKILL.md) | 📖 **简体中文** |
+| ---- | ---- |
+
 name: pdf-metadata-cleaner
 description: 清除 PDF 文件中的隐私元数据（EXIF/XMP/DocInfo/作者/设备标识/扫描软件信息），并移除页面水印文字。当用户要求"清理""去EXIF""去水印""清除元数据""去掉扫描信息"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、WPS、iText 水印、Adobe InDesign 等常见来源。
 ---
