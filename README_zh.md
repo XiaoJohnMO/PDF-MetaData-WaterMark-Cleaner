@@ -1,5 +1,9 @@
+<div align="center">
+
 | 📖 [English](README.md) | 📖 **简体中文** |
 | ---- | ---- |
+
+</div>
 
 名称：PDF元数据清理助手
 ---
