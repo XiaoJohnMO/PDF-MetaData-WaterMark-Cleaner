@@ -1,4 +1,4 @@
-| 📖 **English** | 📖 [简体中文](SKILL_CN.md) |
+| 📖 **English** | 📖 [简体中文](README_zh.md) |
 | ---- | ---- |
 
 name: pdf-metadata-cleaner
