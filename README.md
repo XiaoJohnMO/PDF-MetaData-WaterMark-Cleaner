@@ -13,7 +13,7 @@
 <img width="1204" height="602" alt="PDF图片EXIF隐私检查" src="https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b" />
 
 
-# PDF 元数据与基础类型水印清理
+# PDF 元数据与基础叠加层水印清理
 
 ## 铁律
 
