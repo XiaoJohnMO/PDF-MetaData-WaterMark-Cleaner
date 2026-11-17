@@ -11,7 +11,7 @@ Removes private metadata from PDFs and images inside (EXIF/XMP/DocInfo/author/de
 
 It can be installed for AI Agents as a skill to use.
 
-# PDF Metadata (and basic kinds of Watermark) Cleaning
+# PDF Metadata (and basic overlay watermark) Cleaning
 
 ## Iron rules
 
