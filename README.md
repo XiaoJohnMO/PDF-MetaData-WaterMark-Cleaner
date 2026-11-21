@@ -7,10 +7,10 @@
 
 名称：PDF元数据清理助手
 ---
-清除 PDF 文件及其中图片的隐私元数据（EXIF/XMP/DocInfo/作者/设备指纹/扫描软件信息）和页面水印、扫描 App 水印角标。优先用"提取底图重建新PDF"的方式（从格式工厂处学来）去水印，而不是涂白遮挡。当用户要求"清理""去EXIF""去水印""去掉扫描信息""去设备指纹"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、Quark 夸克扫描王、WPS、iText 水印等来源。
+清除 PDF 文件及其中图片的隐私元数据（EXIF/XMP/DocInfo/作者/设备指纹/扫描软件信息）和页面水印、扫描 App 水印角标。优先用"提取底图重建新PDF"的方式（从格式工厂处学来）去水印，而不是涂白遮挡。当用户要求"清理""去EXIF""去水印""去掉扫描信息""去设备指纹"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、Quark 夸克扫描王、WPS、Word 导出多图文档、iText 水印等来源。
 
 可以作为技能包（skill）搭载至人工智能体代理（AI Agents）中使用。
-<img width="1204" height="602" alt="PDF图片EXIF隐私检查" src="https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b" />
+<img width="1204" height="602" alt="PDF图片EXIF隐私检查" src="[https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b](https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b)" />
 
 
 # PDF 元数据与基础叠加层水印清理
@@ -29,11 +29,11 @@
 
 | 情况 | 脚本行为 |
 |---|---|
-| 本机配好了 exiftool（`clean_pdf.py` 顶部常量） | 用它清理并复查 |
-| PATH 里有 exiftool | 用它清理并复查 |
-| 两者都不可用 | 退回 PyMuPDF 清 Info + 删 XMP，结果等价（已用外部 exiftool 交叉验证，隐私标签全空） |
+| 本机配好了 exiftool（`clean_pdf.py` 顶部常量） | 用它清外壳，再由 PyMuPDF 剥离内嵌 JPEG 元数据并复查 |
+| PATH 里有 exiftool | 用它清外壳，再由 PyMuPDF 剥离内嵌 JPEG 元数据并复查 |
+| 两者都不可用 | 退回 PyMuPDF 清 Info + 删 XMP + 原地剥离内嵌 JPEG 元数据，结果等价（已用外部 exiftool 交叉验证，外壳及图片隐私标签全空） |
 
-**为什么不随包携带 exiftool**：exiftool 不是通用预装件。macOS 自带 perl 但没有exiftool，Windows 两者都没有，随包塞一份 19 MB 的 Perl 工具反而让多数人跑不起来。既然 PyMuPDF 内建清法结果等价，就不该为它付出体积和平台兼容成本。
+**为什么不随包携带 exiftool**：exiftool 不是通用预装件。macOS 自带 perl 但没有 exiftool，Windows 两者都没有，随包塞一份 19 MB 的 Perl 工具反而让多数人跑不起来。既然 PyMuPDF 内建清法结果等价，就不该为它付出体积和平台兼容成本。
 
 > 分享给他人时，`clean_pdf.py` 顶部的 `LOCAL_EXIFTOOL` 常量应清空（打包脚本会自动置为
 > `None`），包内不留任何绝对路径。
@@ -49,7 +49,7 @@ python scripts/rebuild_from_images.py --inspect <input.pdf>
 | 形态 | 判定 | 含义 |
 |---|---|---|
 | `single` | ① 主图覆盖率 ≥ 90%；**或** ② 主图 ≥ 50% 且同时满足：其余图要么 < 5% 的微小叠加、要么平均不透明度 ≤ 30% 的淡叠加（平台水印）、图片对象 ≤ 8 个、无 1-bit 伴生蒙版、文字层只是水印戳（总字数 ≤ 200 且不重复行 ≤ 3） | 一页一张底图，水印/角标是额外叠加对象 |
-| `complex` | 其余情况 | 多图拼贴，或 MRC 混合栅格（彩色 JPEG 底图 + 1-bit 文字蒙版 + 大量碎块） |
+| `complex` | 其余情况 | 多图拼贴（如 Word 多图混排），或 MRC 混合栅格（彩色 JPEG 底图 + 1-bit 文字蒙版 + 大量碎块） |
 
 判定不能只看 90% 一个阈值。② 这一档专门兜两类容易漏掉的正常件：扫描 App 出图留白边（正文只占 77%–88%）、平台上盖一层大半页但几乎透明的 PNG 水印。它同时要求"没有 1-bit 蒙版、文字层只是水印戳"，因此不会放过 MRC，也不会误删正文。
 
@@ -77,14 +77,14 @@ python scripts/rebuild_from_images.py --inspect <input.pdf>
 python scripts/rebuild_from_images.py <input.pdf> <output.pdf>
 ```
 
-做法：把每页那张底图的原始字节取出来 → 剥掉图片级元数据 → 按原位置放进一个全新的 PDF。**一个像素都不改，也不重新编码。**
+做法：自动解除空密码权限锁 → 把每页那张底图的原始字节取出来 → 剥掉图片级元数据 → 按原位置放进一个全新的 PDF（同时保留原书签目录 TOC）。**一个像素都不改，也不重新编码。**
 
 一次解决四件事：
 
 - 水印文字、iText 账号水印（`部门:用户名` 这类重复网格）、页码水印 —— 都是画在文字层里的矢量对象，新 PDF 里没有文字层，自然不存在；
 - 扫描 App 的 logo + 二维码角标 —— 是额外的小图，重建时整体丢弃；
 - OCR 文字层（低质错误识别文本）—— 一并消失；
-- 外壳 Info/XMP、DocumentID、Creator/Producer 设备指纹 —— 新文件从零生成，天然干净。
+- 外壳 Info/XMP、DocumentID、Creator/Producer 设备指纹 —— 新文件从零生成，天然干净（若文档中混有 `complex` 保留页，也会自动对其内嵌 JPEG 执行原地元数据剥离）。
 
 代价：丢掉文字层，扫描件不可全文搜索（扫描件本来也搜不准）。若确需可搜索，另行 OCR。不过达到了清理目的，最大程度去掉机器创建的可识读元数据隐私信息。
 
@@ -96,10 +96,10 @@ python scripts/rebuild_from_images.py <input.pdf> <output.pdf>
 python scripts/clean_pdf.py <input.pdf> <output.pdf>
 ```
 
-原文不再用 `exiftool -all= -o` 硬清（会连结构项一起动），改为：
-exiftool（若本机可用）→ PyMuPDF `set_metadata({})` → `garbage=4, deflate=True`，图片流原封不动。
+原文不再用 `exiftool -all= -o` 直接覆盖（会连结构项一起动），改为：
+exiftool（若本机可用，输出至临时文件）→ PyMuPDF `set_metadata({})` + `del_xml_metadata()` + **原地无损剥离内嵌 JPEG 元数据** → `garbage=4, deflate=True`。
 
-`complex` 页面无法安全拆解（每块碎图都可能是一段正文的蒙版），**保持原样、只清外壳元数据**。此时若页面上确实还有水印，走路线 C 且必须人工核对。
+`complex` 页面（以及 Word/WPS 多图混排转出的 PDF）无法安全拆解单底图重建，因此**保持页面版式原样，同时清除外壳元数据并原地剥离所有纯 `/DCTDecode` 原生 JPEG 图片流的 `APP1`(EXIF/XMP)、`APP13`(IPTC)、`COM` 段及图片级 `/Metadata` 子流**。严格保留 `APP2`(ICC) 与 `APP14`(Adobe 色彩标记)，跳过组合滤镜，**像素零重编码**。此时若页面上确实还有水印，走路线 C 且必须人工核对。
 
 ## 路线 C：redact 涂白（最后手段，有损）
 
@@ -121,12 +121,12 @@ for r in page.search_for("<水印关键词>"):
 - **不要**用 `update_stream` 改写 `[/FlateDecode /DCTDecode]` 组合滤镜的流——写回后渲染会反色损坏。
 - **不要**用 Pillow 重编码内嵌 JPEG 再塞回 PDF。
 - **不要**单独用 `set_metadata({})`——它只清 Info 字典，不清 XMP 流。
-- **不要**硬拼 `complex` 页面，宁可原样保留并告警。
+- **不要**硬拼 `complex` 页面，宁可原样保留版式（仅剥图片元数据段）并告警。
 
 ## 交付前自检
 
 1. `rebuild_from_images.py` 的差异核查无告警；
-2. 隐私标签复查为空（Title/Author/Creator/Producer/Subject/Keywords/Description/Comment/各 Date/XMP）；
+2. 隐私标签复查为空（Title/Author/Creator/Producer/Subject/Keywords/Description/Comment/各 Date/XMP，以及内嵌 JPEG 的 EXIF/COM 段）；
 3. 渲染首页 + 末页 + 中间随机一页，确认白底黑字、内容完整、无缺字白洞；
 4. 页数与原文件一致；
 5. 逐页统计墨迹占比（如 40dpi 灰度下 < 200 的像素比例），疑似空白页必须回原件对照——有的页原件本来就是空白页、只有水印，去掉水印后变白是正确结果，不是丢内容。
@@ -135,19 +135,20 @@ for r in page.search_for("<水印关键词>"):
 
 | 来源 | 形态 | 首要处理 |
 |---|---|---|
-| 柯尼卡美能达 bizhub（KM_3xx / C3xx） | 多为 complex | 路线 B；JPEG COM 段含 `KM_<型号>` 时只剥 COM |
+| 柯尼卡美能达 bizhub（KM_3xx / C3xx） | 多为 complex | 路线 B；清外壳并自动原地剥离内嵌 JPEG 的 `COM`（如 `KM_<型号>`）及 EXIF/XMP 段 |
 | 扫描全能王（CamScanner） | single，正文图多为 77%–88%（带白边），右下角另有 logo 小图约 0.4% | 路线 A，靠"主图 ≥50% + 其余微小叠加"这档判定进入重建 |
 | 夸克扫描王（Quark） | single，正文图 82%–93%，页脚有 logo **+ 二维码** PNG 约 1.5% | 路线 A，logo 与二维码一起丢弃 |
 | 脚本植入的文字水印（如 `Scan By @xxx`） | 正文图通常铺满，水印是 8pt 灰色矢量文字 | 路线 A；重建即丢弃文字层，无需 redact |
 | [企业标准信息公共服务平台](https://www.qybz.org.cn/) | 正文图 85%–87%，**斜向半透明 PNG 水印**覆盖 30%–40%（压着表头）、左上角平台二维码、右下角"扫描全能王 创建"、文字层日期戳 | 路线 A；淡叠加按不透明度判定后整层丢弃，正文不受影响 |
 | 格式工厂转图 | single | 路线 A |
 | iText 账号水印（`部门:用户名` 网格） | 看外层 | 路线 A；禁止涂白 |
-| WPS 文字导出 | 通常无实图 | 路线 B，Author 含真实姓名由清理引擎一并清除 |
+| Word / WPS 多图混排导出 | complex（多图混排） | 路线 B（或路线 A 自动转保留页并净化图片流）；清外壳并原地剥除各张插图的 EXIF/GPS/设备指纹 |
+| WPS 纯文字导出 | 通常无实图 | 路线 B，Author 含真实姓名由清理引擎一并清除 |
 
 ## 脚本一览
 
 | 脚本 | 职责 |
 |---|---|
-| `rebuild_from_images.py` | 侦察形态（`--inspect`）、提取底图重建（路线 A）、差异核查 |
-| `clean_pdf.py` | 清外壳元数据（路线 B），三级引擎自动选择 |
+| `rebuild_from_images.py` | 侦察形态（`--inspect`）、提取底图重建（路线 A，保留原书签目录）、`complex` 页内嵌图净化、差异核查 |
+| `clean_pdf.py` | 清外壳元数据与内嵌 JPEG EXIF/XMP/COM 元数据（路线 B），三级引擎自动选择 |
 | `pdf_to_images.py` | 整页渲染 / 提取内嵌图，两种模式显式区分，同时充当内置的PDF转图片快捷小工具 |
