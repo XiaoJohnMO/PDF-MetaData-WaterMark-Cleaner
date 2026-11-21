@@ -10,7 +10,7 @@
 清除 PDF 文件及其中图片的隐私元数据（EXIF/XMP/DocInfo/作者/设备指纹/扫描软件信息）和页面水印、扫描 App 水印角标。优先用"提取底图重建新PDF"的方式（从格式工厂处学来）去水印，而不是涂白遮挡。当用户要求"清理""去EXIF""去水印""去掉扫描信息""去设备指纹"时使用。支持柯尼卡美能达复合机、CamScanner 扫描全能王、Quark 夸克扫描王、WPS、Word 导出多图文档、iText 水印等来源。
 
 可以作为技能包（skill）搭载至人工智能体代理（AI Agents）中使用。
-<img width="1204" height="602" alt="PDF图片EXIF隐私检查" src="[https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b](https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b)" />
+<img width="1204" height="602" alt="PDF图片EXIF隐私检查" src="https://github.com/user-attachments/assets/e6cc8323-9001-4bba-9006-16105bb68d5b" />
 
 
 # PDF 元数据与基础叠加层水印清理
